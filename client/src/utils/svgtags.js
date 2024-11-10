@@ -15,7 +15,7 @@ const svgTags = [
   "polyline",
   "rect",
   "text",
-  "use"
+  "use",
 ];
 
 export { svgTags };

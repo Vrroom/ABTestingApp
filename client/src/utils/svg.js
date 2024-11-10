@@ -167,13 +167,19 @@ function flattenTree(tree) {
     let { children, ...rest } = node;
     if (svgTags.includes(rest.tagName) || rest.tagName === "svg") {
       rest.properties = properties;
+      if (rest.tagName === 'text') {
+        rest.children = children;
+      }
       elements.push(rest);
     } 
-    children.forEach(helper);
+    if (children !== undefined) {
+      children.forEach(helper);
+    }
     stack.pop();
   };
   helper(tree);
   const paths = elements.slice(1); 
+  console.log(paths)
   return { svg: elements[0], paths, defs };
 }
 
@@ -229,14 +235,14 @@ function preprocessSVG(svgString) {
   const parseTree = parse(svgString).children[0];
   let { svg, paths, defs } = flattenTree(parseTree);
   let bboxes = paths.map(path => findBBox(path, svg.properties.viewBox));
-  paths = paths.filter((_, i) => !degenerateBBox(bboxes[i]));
-  bboxes = bboxes.filter(b => !degenerateBBox(b));
+  // paths = paths.filter((_, i) => !degenerateBBox(bboxes[i]));
+  // bboxes = bboxes.filter(b => !degenerateBBox(b));
   svg = propertiesToCamelCase(svg);
   if (typeof defs !== "undefined") {
     defs = treeMap(defs, propertiesToCamelCase);
   }
   paths = paths.map(propertiesToCamelCase);
-  return normalizeGraphic({ svg, paths, bboxes, defs });
+  return { svg, paths, bboxes, defs };
 }
 
 /**

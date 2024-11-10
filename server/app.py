@@ -1,17 +1,19 @@
 import os
+from copy import deepcopy
+import pandas as pd
 from subprocess import call
 import os.path as osp
 from flask import Flask, jsonify, request, session, make_response
 from flask_session import Session
 import pickle
-from vectorrvnn.utils import *
-from vectorrvnn.data import *
-from vectorrvnn.geometry import *
 import requests
-import svgpathtools as svg
 import uuid
 import json
 from functools import partial
+import random
+import osTools as ot
+import base64
+from lxml import etree as ET
 
 def rootdir():  
     return osp.abspath(osp.dirname(__file__))
@@ -23,126 +25,153 @@ app.config.from_object(__name__)
 Session(app)
 
 # Important globals.
-CAPTCHA_VERIFY = 'https://www.google.com/recaptcha/api/siteverify'
-CAPTCHA_SECRET = os.environ['CAPTCHA_SECRET']
-EMOJI_DATASET = '../../emoji-dataset/interesting'
-DATADIR = '../../vectorrvnn/data/MyAnnotations'
+DATASET = 'examples'
 ANNO_BASE = './data/'
-SVGS = list(filter(
-    lambda x : x.endswith('svg'), 
-    allfiles(DATADIR)
-))
-GROUP_HEURISTICS=[
-    groupByShapeContexts
-]
-rng.seed(100)
 
-def getGroups (tree) : 
-    groups = []
-    for heuristic in GROUP_HEURISTICS : 
-        groups.extend(heuristic(tree)) 
-    # Some of these groups may overlap. Finding the maximum number 
-    # of non-overlapping groups is NP Complete. 
-    rng.shuffle(groups)
-    mark = [False for _ in range(tree.nPaths)]
-    selected = []
-    for g in groups : 
-        if all([not mark[_] for _ in g]) : 
-            selected.append([int(_) for _ in g])
-            for _ in g :
-                mark[_] = True
-    return selected
+with open('template_ab.svg', 'r') as f:
+    SVG_CONTENT_AB = f.read()
+
+with open('template_ref_ab.svg', 'r') as f:
+    SVG_CONTENT_REF_AB = f.read()
+
+TASK_TYPES = [
+    dict(
+        type='image_quality', 
+        layout=SVG_CONTENT_AB, 
+        sentinel_df=pd.read_csv('sentinel_image_quality.csv'),
+        user_study_df=pd.read_csv('user_study_image_quality.csv')
+    ), 
+    dict(
+        type='image_lighting', 
+        layout=SVG_CONTENT_REF_AB, 
+        sentinel_df=pd.read_csv('sentinel_image_lighting.csv'),
+        user_study_df=pd.read_csv('user_study_image_lighting.csv')
+    ), 
+    dict(
+        type='image_identity', 
+        layout=SVG_CONTENT_REF_AB, 
+        sentinel_df=pd.read_csv('sentinel_image_identity.csv'),
+        user_study_df=pd.read_csv('user_study_image_identity.csv')
+    ), 
+]
+
+
+rng = random.Random(0)
+
+def apply_images_to_svg (svg_txt, image_mapping) : 
+    encoded_images = {}
+    for class_name, image_file in image_mapping.items():
+        with open(image_file, 'rb') as img_file:
+            encoded_string = base64.b64encode(img_file.read()).decode('utf-8')
+        encoded_images[class_name] = encoded_string
+
+    # Namespaces
+    namespaces = {
+        'svg': 'http://www.w3.org/2000/svg',
+        'xlink': 'http://www.w3.org/1999/xlink'
+    }
+
+    # Parse SVG
+    parser = ET.XMLParser(ns_clean=True)
+    tree = ET.fromstring(svg_txt.encode('utf-8'), parser)
+
+    for class_name, base64_data in encoded_images.items():
+        # Find the rectangle with the given class
+        rects = tree.xpath(".//svg:rect[@class='{}']".format(class_name), namespaces=namespaces)
+        if rects:
+            rect = rects[0]
+            x = rect.get('x')
+            y = rect.get('y')
+            width = rect.get('width')
+            height = rect.get('height')
+
+            # Create new image element
+            image_elem = ET.Element('{http://www.w3.org/2000/svg}image', {
+                'x': x,
+                'y': y,
+                'width': width,
+                'height': height,
+                '{http://www.w3.org/1999/xlink}href': f'data:image/png;base64,{base64_data}',
+                'class': class_name
+            })
+
+            # Replace rectangle with image
+            parent = rect.getparent()
+            parent.replace(rect, image_elem)
+        else:
+            print(f"No rectangle with class '{class_name}' found in SVG.")
+
+    new_svg = ET.tostring(tree, pretty_print=True, encoding='utf-8').decode('utf-8')
+    return new_svg
 
 @app.route('/')
 def root():  
     session['id'] = uuid.uuid4()
-    session['tasks'] = rng.sample(range(len(SVGS)), 5)
-    mkdir(f'{ANNO_BASE}/{session["id"]}') 
-    with open(f'{ANNO_BASE}/{session["id"]}/tasks.txt', 'w+') as fp : 
-        for i in session['tasks'] : 
-            fp.write(SVGS[i] + '\n') 
+    N = 9
+    session['tasks'] = []
+    for task_type in TASK_TYPES : 
+        sentinel_task = dict(task_type['sentinel_df'].sample(1).iloc[0])
+
+        sentinel_task['kind'] = 'sentinel'
+        sentinel_task['type'] = task_type['type'] 
+        sentinel_task['layout'] = task_type['layout']
+
+        session['tasks'].append(sentinel_task)
+
+        general_tasks = task_type['user_study_df'].sample(N)
+
+        for i in range(len(general_tasks)) : 
+            general_task = dict(general_tasks.iloc[i])
+            general_task['kind'] = 'user_study'
+            general_task['type'] = task_type['type'] 
+            general_task['layout'] = task_type['layout'] 
+            session['tasks'].append(general_task)
+
+    os.makedirs(f'{ANNO_BASE}/{session["id"]}', exist_ok=True) 
+    with open(f'{ANNO_BASE}/{session["id"]}/tasks.json', 'w+') as fp : 
+        json.dump(session['tasks'], fp) 
+
     with open(f'{app.static_folder}/index.html') as fp :
         content = fp.read()
+
     resp = make_response(content)
     return resp
-
-@app.route('/vis') 
-def vis () :
-    with open(f'{app.static_folder}/vis.html') as fp: 
-        content = fp.read()
-    return make_response(content)
-
-@app.route('/emoji-dataset', methods=['POST', 'GET']) 
-def emojiDataset () : 
-    startId = request.json['startId']
-    number = request.json['number']
-    svgFiles = listdir(EMOJI_DATASET)[startId:startId+number]
-    svgs = []
-    for svgFile in svgFiles: 
-        with open(svgFile) as fp : 
-            svgs.append(fp.read())
-    return jsonify(svgs=svgs)
 
 @app.route('/task', methods=['POST', 'GET']) 
 def task () : 
     taskNum = request.json['taskNum']
-    svgFile = SVGS[session['tasks'][taskNum]]
-    tree = SVGData(svgFile, convert2usvg=True) 
-    groups = getGroups(tree)
-    return jsonify(svg=tree.svg, groups=groups, filename=svgFile)
+    task_data = deepcopy(session['tasks'][taskNum] )
 
-@app.route('/validate', methods=['POST', 'GET'])
-def validate () : 
-    token = request.json['captchaValue']
-    email = request.json['email']
-    turkid = request.json['turkid']
-    payload = {
-        "secret": CAPTCHA_SECRET,
-        "response": token
-    }
-    resp = requests.post(CAPTCHA_VERIFY, data=payload).json()
-    if resp['success'] : 
-        id = session['id']
-        with open(f'{ANNO_BASE}/{id}/email.txt', 'w+') as fp : 
-            fp.write(email)
-        with open(f'{ANNO_BASE}/{id}/turkid.txt', 'w+') as fp :
-            fp.write(turkid)
-    return jsonify(success=resp['success'])
+    layout = task_data.pop('layout')
+    keys = list(task_data.keys())
+    for k in keys : 
+        if k not in ['A', 'B', 'ref'] :
+            task_data.pop(k) 
 
-@app.route('/logip', methods=['POST', 'GET']) 
-def logip () :
-    id = session['id']
-    payload = request.json
-    with open(f'{ANNO_BASE}/{id}/ip.json', 'w+') as fp: 
-        json.dump(payload, fp)
+    new_svg = apply_images_to_svg(layout, task_data)
+    type = session['tasks'][taskNum]['type']
+    kind = session['tasks'][taskNum]['kind'] 
+
+    return jsonify(svg=new_svg, type=type, kind=kind)
+
+@app.route('/save', methods=['POST', 'GET']) 
+def save () :
+    taskNum = request.json['taskNum']
+    choice = request.json['choice']
+    with open(f'{ANNO_BASE}/{session["id"]}/responses.csv', 'a+') as fp : 
+        fp.write(f'{taskNum},{choice}\n')
     return jsonify(success=True)
 
 @app.route('/tutorialgraphic', methods=['POST', 'GET'])
 def tutorialgraphic () :
-    with open('./assets/tutorial.pkl', 'rb') as fp: 
-        T = pickle.load(fp) 
-    inFile = '/tmp/in.svg'
-    with open(inFile, 'w+') as fp :
-        fp.write(repr(T.doc))
-    outFile = '/tmp/o.svg'
-    call(['usvg', inFile, outFile])
-    with open(outFile) as fd :
-        svg = fd.read()
-    return jsonify(svg=svg, filename='tutorial.svg')
+    files = ot.listdir('tutorial')
+    image_mapping = dict()
+    for file in files :
+        image_mapping[ot.getBaseName(file)] = file
 
-@app.route('/checktutorial', methods=['POST', 'GET']) 
-def checktutorial () : 
-    id = session['id']
-    with open('./assets/tutorial.pkl', 'rb') as fp: 
-        T = pickle.load(fp) 
-    T_ = appGraph2nxGraph(request.json['graph'])
-    with open(f'{ANNO_BASE}/{id}/tutorialTree.json', 'w+') as fp :
-        json.dump(request.json, fp)
-    score = norm_cted(T, T_)
-    with open(f'{ANNO_BASE}/{id}/tutscores.txt', 'a+') as fp :
-        fp.write(f'{score}\n')
-    success = score < 0.25
-    return jsonify(success=success)
+    new_svg = apply_images_to_svg(image_mapping)
+
+    return jsonify(svg=new_svg)
 
 @app.route('/survey', methods=['POST', 'GET']) 
 def survey () :
@@ -151,15 +180,6 @@ def survey () :
     with open(f'{ANNO_BASE}/{id}/survey.txt', 'w+') as fp :
         for i, r in enumerate(ratings) :
             fp.write(f'{i}, {r}\n')
-    return jsonify(success=True)
-
-@app.route('/tree', methods=['POST', 'GET'])
-def tree () : 
-    id = session['id']
-    payload = request.json
-    taskNum = payload['taskNum']
-    with open(f'{ANNO_BASE}/{id}/treeData{taskNum}.json', 'w+') as fp :
-        json.dump(payload, fp)
     return jsonify(success=True)
 
 @app.route('/time', methods=['POST', 'GET'])
@@ -188,6 +208,14 @@ def comments () :
         fp.write(cid + '\n')
     return jsonify(cid=cid, success=True)
 
+@app.route('/validate', methods=['POST', 'GET'])
+def validate () :
+    email = request.json['email']
+    id = session['id']
+    with open(f'{ANNO_BASE}/{id}/email.txt', 'w+') as fp :
+        fp.write(email)
+    return jsonify(success=True)
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=5000)
 

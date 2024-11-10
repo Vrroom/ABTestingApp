@@ -24,11 +24,17 @@ function propertiesToCamelCase(node) {
   if (!properties) {
     return rest;
   }
+  let oldKeys = Object.keys(properties);
   let newKeys = Object.keys(properties).map(camelCase);
   let oldValues = Object.values(properties);
   let newProperties = {};
   for (let i = 0; i < oldValues.length; i++) {
-    const key = newKeys[i];
+    let key;
+    if (oldKeys[i].includes(':')) {
+      key = oldKeys[i].split(':')[1];
+    } else {
+      key = newKeys[i];
+    }
     const val = oldValues[i];
     newProperties[key] = val;
   }

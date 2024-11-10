@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@babel/core": "7.9.0",
+    "@babel/core": "^7.25.8",
     "@svgdotjs/svg.js": "^3.0.16",
     "@svgr/webpack": "4.3.3",
     "@testing-library/jest-dom": "^5.16.1",
@@ -75,7 +75,7 @@
   },
   "scripts": {
     "start": "node scripts/start.js",
-    "build": "GENERATE_SOURCEMAP=false node scripts/build.js",
+    "build": "GENERATE_SOURCEMAP=true node scripts/build.js",
     "test": "node scripts/test.js"
   },
   "eslintConfig": {

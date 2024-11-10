@@ -49,10 +49,7 @@ function Comments(props) {
         <Col className="d-flex justify-content-center col-12">
           <ListGroup variant="flush">
             <ListGroup.Item className="py-2">
-              <h4>Thanks for completing the study!</h4>
-            </ListGroup.Item>
-            <ListGroup.Item className="py-2">
-              <h4>{`Your survey code is - ${cid}`}</h4>
+              <h4>Thanks for completing the study! You may now close this window.</h4>
             </ListGroup.Item>
           </ListGroup>
         </Col>

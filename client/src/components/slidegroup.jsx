@@ -51,6 +51,7 @@ class SlideGroup extends Component {
             children={children}
             setHighlight={this.setHighlight}
             setShowNext={this.setShowNext}
+            onNext={this.onNext}
           />
         </Row>
         <Row className="border-top mt-3">

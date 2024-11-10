@@ -1,0 +1,4 @@
+A,B,ref,correct
+sentinels/image_lighting/correct/img_001.png,sentinels/image_lighting/incorrect/img_001.png,sentinels/image_lighting/ref/img_001.png,sentinels/image_lighting/correct/img_001.png
+sentinels/image_lighting/correct/img_002.png,sentinels/image_lighting/incorrect/img_002.png,sentinels/image_lighting/ref/img_002.png,sentinels/image_lighting/correct/img_002.png
+sentinels/image_lighting/incorrect/img_003.png,sentinels/image_lighting/correct/img_003.png,sentinels/image_lighting/ref/img_003.png,sentinels/image_lighting/correct/img_003.png

@@ -3,7 +3,6 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Spinner from "react-bootstrap/Spinner"; 
 import GraphicDisplay from "./graphicdisplay";
-import GroupDisplay from "./groupdisplay";
 import { preprocessSVG } from "../utils/svg";
 import { boxforce } from "../utils/boxforce";
 import { cloneDeep } from "lodash";
@@ -37,6 +36,28 @@ function skipNode(props, nid) {
   return !isUndef(disableNodes) && disableNodes.includes(nid);
 }
 
+function getTaskDescription(type, kind) {
+  const descriptions = {
+    image_quality: (
+      <h4>
+        <b>[Phase 1]</b> Which image, <b>A</b> or <b>B</b>, has better visual quality? Consider composition and visible artifacts.
+      </h4>
+    ),
+    image_lighting: (
+      <h4>
+        <b>[Phase 2]</b> Which image, <b>A</b> or <b>B</b>, better matches the lighting in <b>Reference</b>? Focus on shadows and face lighting.
+      </h4>
+    ),
+    image_identity: (
+      <h4>
+        <b>[Phase 3]</b> Which image, <b>A</b> or <b>B</b>, better preserves the identity of the person in <b>Reference</b>?
+      </h4>
+    )
+  };
+
+  return descriptions[type] || descriptions.image_identity;
+}
+
 class GroupUI extends Component {
   /*
    * Set the initial state of the component.
@@ -59,7 +80,9 @@ class GroupUI extends Component {
       selected: [],
       filename: "",
       svgString: '<svg height="100" width="100"></svg>',
-      nothingIn: true
+      nothingIn: true,
+      type: "",
+      kind: "",
     };
     // d3-force's simulation object for calculating
     // the graph layout and because it looks cool.
@@ -69,10 +92,6 @@ class GroupUI extends Component {
   resetToInit = () => {
     const { svgString, filename } = this.state;
     this.setStateWithNewSVG(svgString, filename);
-  };
-
-  setGraphState = (graph) => {
-    this.setState({ graph });
   };
 
   /*
@@ -104,23 +123,15 @@ class GroupUI extends Component {
 
   setStateWithNewSVG = (svgString, filename, groups) => {
     const graphic = preprocessSVG(svgString);
-    let graph = createEmptyGraph(graphic);
-    if (isUndef(groups)) groups = [];
-    for (let i = 0; i < groups.length; i += 1) {
-      graph = groupNodes(graph, groups[i]);
-    }
-    graph = updateVisualProperties(graph, graphic);
     this.setState({
       graphic,
-      graph: graph,
       hover: [],
       selected: [],
       filename,
       svgString,
       nothingIn: false
     });
-    this.updateSimulation(graph);
-    this.tryNotifyParent({ type: "new-svg", graph });
+    this.tryNotifyParent({ type: "new-svg" });
   };
 
   /*
@@ -131,63 +142,13 @@ class GroupUI extends Component {
   getNewSVGFromDB = () => {
     const { src, metadata } = this.props;
     postData(src, metadata).then((item) => {
-      const { svg, filename, groups } = item;
+      const { svg, filename, groups, type, kind } = item;
+      this.setState({
+        type,
+        kind
+      });
       this.setStateWithNewSVG(svg, filename, groups);
     });
-  };
-
-  /*
-   * Update and restart the d3-force simulation.
-   *
-   * This function is called whenever the graph is
-   * changed.
-   *
-   * 1. The alpha value of simulation is set to 1. This
-   *    value slowly decays to 0 as the graph nodes settle
-   *    to their final positions.
-   * 2. The simulation is restarted with the nodes and the
-   *    links set as per the graph.
-   * 3. The forces that make the final layout look reasonable
-   *    are added.
-   * 4. Finally, a callback is registered on the "tick" event.
-   *    D3 will internally call this callback on each step
-   *    of the simulation. The callback updates the graph state
-   *    of the component with the latest value of node positions.
-   *    Once this is done, React will update the GroupDisplay
-   *    component with the new node positions. As a result,
-   *    the user will see the nodes move towards their final
-   *    layout.
-   *
-   * @param   {Object}  graph - Graph over SVG paths.
-   */
-  updateSimulation = (graph, alpha = 1) => {
-    const width = 100;
-    const height = 100;
-    const copy = cloneDeep(graph);
-    const rootNodes = copy.nodes.filter(
-      (node) => typeof node.parent === "undefined"
-    );
-    this.sim
-      .alpha(alpha)
-      .restart()
-      .nodes(rootNodes)
-      .force(
-        "collide",
-        d3.forceCollide().radius((node) => (node.radius + 1) * node.visible)
-      )
-      .force(
-        "charge",
-        d3.forceManyBody().strength((node) => -5 * node.visible)
-      )
-      .force(
-        "boxforce",
-        boxforce((node) => node.radius, width, height)
-      )
-      .force("forceX", d3.forceX(width / 2).strength(0.1))
-      .force("forceY", d3.forceY(height / 2).strength(0.1))
-      .on("tick", () => {
-        this.setGraphState(copy, false);
-      });
   };
 
   tryNotifyParent = (msg) => {
@@ -211,19 +172,28 @@ class GroupUI extends Component {
    * @param   {Number}  id - Id of the node on which
    * the event was fired.
    */
-  handleClick = (event, id) => {
-    if (skipNode(this.props, id)) return;
-    const selected = cloneDeep(this.state.selected);
-    const graph = this.state.graph;
-    id = findRoot(id, graph);
-    const isSelected = selected.includes(id);
-    // Toggle on the basis of whether the node was already selected or not.
+  handleClick = (event, id, className) => {
+    if (!isUndef(this.props.disableNodes) && this.props.disableNodes.includes(className)) {
+      return;
+    }
+    const { setHighlight, setShowNext } = this.props;
+    let selected = cloneDeep(this.state.selected);
+    const isSelected = selected.includes(className);
     if (isSelected) {
-      selected.splice(selected.indexOf(id), 1);
+      // unselect it.
+      // setHighlight(false);
+      // setShowNext(false);
+      selected.splice(selected.indexOf(className), 1);
     } else {
-      selected.push(id);
+      // setHighlight(true);
+      // setShowNext(true);
+      selected = [className];
+      const { target, metadata } = this.props;
+      const result = { ...metadata, choice: className };
+      postData('/save', result);
     }
     this.setState({ selected });
+    this.props.onNext();
     this.tryNotifyParent({ type: "select", selected });
   };
 
@@ -231,26 +201,11 @@ class GroupUI extends Component {
    * Handle the event when the pointer hovers over
    * some node.
    *
-   * Sets the internal state to mark all the paths
-   * who are being hovered over currently. We make such
-   * paths more transparent to give user feedback.
-   *
    * @param   {Number}  id - Id of the node.
    */
-  handlePointerOver = (id) => {
-    const graph = this.state.graph;
-    id = findRoot(id, graph);
-    if (!isRoot(id, graph)) {
-      this.handlePointerOver(graph.nodes[id].parent);
-      return;
-    }
-    let node = graph.nodes[id];
-    node.fill = nodeColors.hover;
-    if (node.type === "path") {
-      const hover = [id];
-      this.setState({ hover });
-    } else {
-      const hover = node.children.map((i) => graph.nodes[i].paths).flat();
+  handlePointerOver = (id, className) => {
+    if (["A", "B"].includes(className)) {
+      const hover = [className];
       this.setState({ hover });
     }
   };
@@ -260,83 +215,10 @@ class GroupUI extends Component {
    *
    * @param   {Number}  id - Id of the node.
    */
-  handlePointerLeave = (id) => {
-    const graph = this.state.graph;
-    id = findRoot(id, graph);
-    let node = graph.nodes[id];
-    node.fill = nodeColors.group;
+  handlePointerLeave = (id, className) => {
     this.setState({ hover: [] });
   };
 
-  /*
-   * Burst the bubble and undo the grouping.
-   *
-   * @param   {Number}  id - Id of the node.
-   */
-  handleNodeDblClick = (event, id) => {
-    this.setState({ selected: [] });
-    let graph = cloneDeep(this.state.graph);
-    if (graph.nodes[id].type === "path") {
-      return;
-    }
-    let children = graph.nodes[id].children;
-    for (let i = 0; i < children.length; i++) {
-      const childId = children[i];
-      graph.nodes[childId].parent = undefined;
-    }
-    graph.links = graph.links.filter(
-      (link) => !(link.source === id || link.target === id)
-    );
-    const idMap = {};
-    graph.nodes = graph.nodes.filter((node) => node.id !== id);
-    graph.nodes.forEach((node, i) => (idMap[node.id] = i));
-    for (let i = 0; i < graph.nodes.length; i++) {
-      let node = graph.nodes[i];
-      node.id = idMap[node.id];
-      if (!isRoot(node.id, graph)) node.parent = idMap[node.parent];
-      for (let j = 0; j < node.children.length; j++) {
-        node.children[j] = idMap[node.children[j]];
-      }
-    }
-    for (let i = 0; i < graph.links.length; i++) {
-      let link = graph.links[i];
-      link.source = idMap[link.source];
-      link.target = idMap[link.target];
-    }
-    graph = updateVisualProperties(graph, this.state.graphic);
-    this.updateSimulation(graph);
-    this.tryNotifyParent({ type: "group-undo" });
-  };
-
-  /*
-   * Handle click on the group button.
-   *
-   * Check whether the selected nodes are
-   * mergeable. Create a new node representing
-   * the merge if this is the case.
-   */
-  handleGroupClick = (event) => {
-    if (skipGroup(this.props)) return;
-    const selected = [...this.state.selected];
-    const graph = updateVisualProperties(
-      groupNodes(this.state.graph, selected),
-      this.state.graphic
-    );
-    if (isTree(graph)) {
-      postData(this.props.target, {
-        ...this.state,
-        graph,
-        ...this.props.metadata,
-      }).then((res) => this.tryNotifyParent({ type: "tree-check", ...res }));
-      if (!isUndef(this.props.setHighlight)) {
-        const { setHighlight, setShowNext } = this.props;
-        setHighlight(true); 
-        setShowNext(true);
-      }
-    }
-    this.updateSimulation(graph);
-    this.tryNotifyParent({ type: "group", selected });
-  };
 
   /*
    * Clear the selections.
@@ -348,6 +230,9 @@ class GroupUI extends Component {
    */
   handleClear = (event) => {
     if (skipClear(this.props)) return;
+    const { setHighlight, setShowNext } = this.props;
+    setHighlight(false);
+    setShowNext(false);
     const selected = [];
     this.setState({ selected });
     this.tryNotifyParent({ type: "clear" });
@@ -355,6 +240,8 @@ class GroupUI extends Component {
 
   render() {
     let { highlightSvg, highlightGroup, highlightGraph } = this.props;
+    const { type, kind } = this.state;
+    console.log(type, kind);
     if (this.state.nothingIn) {
       return (
         <Row className="py-3 align-items-center">
@@ -366,49 +253,31 @@ class GroupUI extends Component {
         </Row>
       );
     }
+
     if (isUndef(highlightSvg)) highlightSvg = [];
     if (isUndef(highlightGraph)) highlightGraph = [];
     if (isUndef(highlightGroup)) highlightGroup = false;
+
     return (
       <>
-        <Row>
-          <Col className="d-flex justify-content-center">
-            <GraphicDisplay
-              graphic={this.state.graphic}
-              graph={this.state.graph}
-              selected={this.state.selected}
-              hover={this.state.hover}
-              onClick={this.handleClick}
-              onPointerOver={this.handlePointerOver}
-              onPointerLeave={this.handlePointerLeave}
-              highlight={highlightSvg}
-            />
+        <Row className="py-3 justify-content-center">
+          <Col className="d-flex col-10 justify-content-center">
+            {getTaskDescription(type, kind)}            
           </Col>
-          <Col className="d-flex justify-content-center">
-            <GroupDisplay
-              graphic={this.state.graphic}
-              docId={this.state.id}
-              graph={this.state.graph}
-              selected={this.state.selected}
-              onClick={this.handleClick}
-              onPointerOver={this.handlePointerOver}
-              onPointerLeave={this.handlePointerLeave}
-              onNodeDblClick={this.handleNodeDblClick}
-              highlight={highlightGraph}
-            />
-          </Col>
-        </Row>
-        <Row>
-          <Col>
-            <IconButton
-              name="Group"
-              active={true}
-              onClick={this.handleGroupClick}
-              highlight={highlightGroup}
-            >
-              <Group />
-            </IconButton>
-          </Col>
+          <Row>
+            <Col className="d-flex justify-content-center mt-3">
+              <GraphicDisplay
+                graphic={this.state.graphic}
+                graph={this.state.graph}
+                selected={this.state.selected}
+                hover={this.state.hover}
+                onClick={this.handleClick}
+                onPointerOver={this.handlePointerOver}
+                onPointerLeave={this.handlePointerLeave}
+                highlight={highlightSvg}
+              />
+            </Col>
+          </Row>
         </Row>
       </>
     );

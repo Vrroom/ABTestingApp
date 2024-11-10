@@ -11,7 +11,6 @@ import { Fireworks } from "fireworks-js/dist/react";
 class Survey extends Component {
   constructor(props) {
     super(props);
-    this.state = { page: 0 };
   }
 
   postRatings = () => {
@@ -27,7 +26,7 @@ class Survey extends Component {
         return "none";
       }
     });
-    postData("/survey", ratings).then(this.setState({ page: 1 }));
+    postData("/survey", ratings);
     setShowNext(true);
     setHighlight(true);
   };
@@ -39,47 +38,43 @@ class Survey extends Component {
   }
 
   render() {
-    const { page } = this.state;
     return (
       <>
         <Row className="py-2 justify-content-center">
           <Col className="d-flex justify-content-center col-12">
-            <h4>Survey</h4>
+            <h4>Survey (Part 1)</h4>
           </Col>
         </Row>
         <Row className="py-2 align-items-center">
           <Col className="d-flex justify-content-center">
-            <PageTransition page={page}>
-              <ListGroup variant="flush">
-                <ListGroup.Item className="py-2">
-                  <Likert qnum={0}>I found the tasks easy to complete</Likert>
-                </ListGroup.Item>
-                <ListGroup.Item className="py-2">
-                  <Likert qnum={1}>The instructions were clear</Likert>
-                </ListGroup.Item>
-                <ListGroup.Item className="py-2">
-                  <Likert qnum={2}>
-                    I was attentive while completing the task
-                  </Likert>
-                </ListGroup.Item>
-                <ListGroup.Item className="py-2">
-                  <Likert qnum={3}>
-                    Estimated time for task completion was accurate
-                  </Likert>
-                </ListGroup.Item>
-                <ListGroup.Item className="py-2">
-                  <IconButton
-                    name="Submit"
-                    active={true}
-                    variant="primary"
-                    onClick={this.postRatings}
-                  >
-                    Submit
-                  </IconButton>
-                </ListGroup.Item>
-              </ListGroup>
-              <Fireworks />
-            </PageTransition>
+            <ListGroup variant="flush">
+              <ListGroup.Item className="py-2">
+                <Likert qnum={0}>I found the tasks easy to complete</Likert>
+              </ListGroup.Item>
+              <ListGroup.Item className="py-2">
+                <Likert qnum={1}>The instructions were clear</Likert>
+              </ListGroup.Item>
+              <ListGroup.Item className="py-2">
+                <Likert qnum={2}>
+                  I was attentive while completing the task
+                </Likert>
+              </ListGroup.Item>
+              <ListGroup.Item className="py-2">
+                <Likert qnum={3}>
+                  Estimated time for task completion was accurate
+                </Likert>
+              </ListGroup.Item>
+              <ListGroup.Item className="py-2">
+                <IconButton
+                  name="Submit"
+                  active={true}
+                  variant="primary"
+                  onClick={this.postRatings}
+                >
+                  Submit
+                </IconButton>
+              </ListGroup.Item>
+            </ListGroup>
           </Col>
         </Row>
       </>

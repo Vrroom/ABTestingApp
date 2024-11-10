@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1920 1080">
+  <g>
+    <rect class="ref" x="65.774" y="323.11" width="426.47" height="426.47"/>
+    <line stroke="#ccc" stroke-width="3px" class="cls-2" x1="539.91" y1="17.21" x2="539.91" y2="1062.8"/>
+    <rect class="A" x="583" y="216.55" width="626.03" height="626.03"/>
+    <rect class="B" x="1252.1" y="216.55" width="625.58" height="625.58"/>
+    
+    <text fill="#000" font-family="MyriadPro-Regular, 'Myriad Pro'" font-size="36px" transform="translate(180.2 814.01)">Reference</text>
+    <text fill="#000" font-family="MyriadPro-Regular, 'Myriad Pro'" font-size="36px" transform="translate(816.65 898.65)">Output A</text>
+    <text fill="#000" font-family="MyriadPro-Regular, 'Myriad Pro'" font-size="36px" transform="translate(1488.26 898.65)">Output B</text>
+  </g>
+</svg>

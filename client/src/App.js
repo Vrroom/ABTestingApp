@@ -11,12 +11,6 @@ class App extends Component {
     };
   }
 
-  componentDidMount() {
-    fetch("https://ipapi.co/json/")
-      .then((res) => res.json())
-      .then((res) => postData("/logip", res));
-  }
-
   completeEntry = (res) => {
     if (res.success) {
       this.setState({ showSlides: true });

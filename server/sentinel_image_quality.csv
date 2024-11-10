@@ -1,0 +1,10 @@
+A,B,correct
+sentinels/image_quality/correct/img_000.png,sentinels/image_quality/incorrect/img_000.png,sentinels/image_quality/correct/img_000.png
+sentinels/image_quality/correct/img_001.png,sentinels/image_quality/incorrect/img_001.png,sentinels/image_quality/correct/img_001.png
+sentinels/image_quality/correct/img_002.png,sentinels/image_quality/incorrect/img_002.png,sentinels/image_quality/correct/img_002.png
+sentinels/image_quality/incorrect/img_003.png,sentinels/image_quality/correct/img_003.png,sentinels/image_quality/correct/img_003.png
+sentinels/image_quality/incorrect/img_004.png,sentinels/image_quality/correct/img_004.png,sentinels/image_quality/correct/img_004.png
+sentinels/image_quality/correct/img_005.png,sentinels/image_quality/incorrect/img_005.png,sentinels/image_quality/correct/img_005.png
+sentinels/image_quality/incorrect/img_006.png,sentinels/image_quality/correct/img_006.png,sentinels/image_quality/correct/img_006.png
+sentinels/image_quality/incorrect/img_008.png,sentinels/image_quality/correct/img_008.png,sentinels/image_quality/correct/img_008.png
+sentinels/image_quality/correct/img_009.png,sentinels/image_quality/incorrect/img_009.png,sentinels/image_quality/correct/img_009.png

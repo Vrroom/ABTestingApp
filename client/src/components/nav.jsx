@@ -6,7 +6,6 @@ import Col from "react-bootstrap/Col";
 import IconButton from "./iconbutton";
 import { ReactComponent as ContactUs } from "../icons/contact.svg";
 import { ReactComponent as Help } from "../icons/help.svg";
-import HelpModal from "./helpmodal";
 
 function sendEmail() {
   window.open(
@@ -21,20 +20,11 @@ function Nav(props) {
       <Navbar>
         <Container className="border-bottom">
           <Navbar.Brand>
-            <h1>VGTrees</h1>
+            <h1>Portrait Relighting</h1>
           </Navbar.Brand>
           <Navbar.Toggle />
           <Navbar.Collapse className="justify-content-end">
             <Row>
-              <Col>
-                <IconButton
-                  name="Help"
-                  active={true}
-                  onClick={() => setShow(true)}
-                >
-                  <Help />
-                </IconButton>
-              </Col>
               <Col>
                 <IconButton name="Contact Us" active={true} onClick={sendEmail}>
                   <ContactUs />
@@ -44,7 +34,6 @@ function Nav(props) {
           </Navbar.Collapse>
         </Container>
       </Navbar>
-      <HelpModal show={show} onHide={() => setShow(false)} />
     </>
   );
 }

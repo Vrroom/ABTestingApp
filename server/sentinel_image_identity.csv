@@ -1,0 +1,3 @@
+A,B,ref,correct
+sentinels/image_identity/correct/img_001.png,sentinels/image_identity/incorrect/img_001.png,sentinels/image_identity/ref/img_001.png,sentinels/image_identity/correct/img_001.png
+sentinels/image_identity/correct/img_002.png,sentinels/image_identity/incorrect/img_002.png,sentinels/image_identity/ref/img_002.png,sentinels/image_identity/correct/img_002.png
